@@ -1,0 +1,50 @@
+{
+  "description": "Published source copies. Raw document exports and private origin paths are kept in the local archive.",
+  "files": [
+    {
+      "file": "S01-frame-perspective.jpg",
+      "bytes": 66487,
+      "sha256": "a20532994654bee0bb8863d0a7c8d9baa8911722a7776680f28231e15270d060"
+    },
+    {
+      "file": "S02-clear-bottle.jpg",
+      "bytes": 465993,
+      "sha256": "0313c62ac1814c52634048f4d12e9bdfa2071c4edcf48e05349ca4271666b920"
+    },
+    {
+      "file": "S03-white-bottle.jpg",
+      "bytes": 402321,
+      "sha256": "d63b692fa62da540283e591fe712e48ca017bbf34c3a0a3c5cef7c4313614c42"
+    },
+    {
+      "file": "S04-removable-base.jpg",
+      "bytes": 456053,
+      "sha256": "996bf8dd96718d4c5d0c78b3522d75853104752724b76dc586fd9fc2148f187f"
+    },
+    {
+      "file": "S05-reactor-drawing.jpg",
+      "bytes": 177746,
+      "sha256": "ee691206c71ce934c86c4e7d4bfb77215312e249586594797d4e2e91ea4fb2bc"
+    },
+    {
+      "file": "S06-meter-negative.jpg",
+      "bytes": 174836,
+      "sha256": "cddea4bffadcd1a23953bbc43829043ed7bccded35ef68c9a560cd2e6430b7bd"
+    },
+    {
+      "file": "S07-meter-positive.jpg",
+      "bytes": 194239,
+      "sha256": "a9eaeb006c5a65d3111a0c2d8f03a223d7cfe017981c0700fffdc8e8e14d613e"
+    },
+    {
+      "file": "S08-frame-side.jpg",
+      "bytes": 61490,
+      "sha256": "5019e8e6b1b68b7cb3d3eaf4e511521d4860484f50716016ec46becddc7b09d7"
+    },
+    {
+      "file": "phase-0.md",
+      "bytes": 13247,
+      "sha256": "0ca0bdc3cb708f1dec474bbcbe914943e7ddba6e01039e5b72c0e12b3ff6702b"
+    }
+  ]
+}

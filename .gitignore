@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.DS_Store
+.impeccable/review/
+.impeccable/questions/
+research/originals/
+research/inventory.json
+public/sources/notion-mfc.json
+public/sources/notion-phd.json
+public/sources/feasibility-study.md
+public/sources/research-path.md
+public/sources/grok-audit.md
+public/sources/inventory.json
+*.local
+*.backup.json
+mfc-backup-*.json
