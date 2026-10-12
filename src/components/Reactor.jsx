@@ -16,6 +16,10 @@ import {
   totalHeight,
   validateConfig,
   editDimension,
+  isWallArc,
+  wallArcConfig,
+  wallArcPresets,
+  cathodeInsideFraction,
 } from "../domain/geometry.js";
 import { evidenceLabels } from "../data.js";
 const fields = [
@@ -39,6 +43,13 @@ const electrodeFields = [
   ["cathodeHeight", "Cathode window height", 1000, 5, 250, 1],
   ["cathodeBottom", "Cathode bottom clearance", 1000, 0, 100, 1],
   ["exposedFraction", "Air-exposed window", 100, 0, 100, 5, "%"],
+];
+const arcFields = [
+  ...electrodeFields.filter(field => !["electrodeGap", "cathodeWidth"].includes(field[0])),
+  ["cathodeFraction", "Cathode circumference coverage", 100, 1, 50, 1, "%"],
+  ["anodeWallInset", "Anode clearance from wall", 1000, 0.1, 15, 0.1],
+  ["filterThickness", "Filter backing thickness", 1000, 0.5, 15, 0.5],
+  ["spacerRadius", "Edge spacer diameter", 2000, 1, 15, 0.5],
 ];
 const partInfo = {
   "Housing & conceptual seals": [
@@ -119,7 +130,17 @@ export default function Reactor({ config, setConfig, onNewRun }) {
     [selected, setSelected] = useState("Cathode · projected air window"),
     [error, setError] = useState("");
   const g = geometry(config),
-    height = totalHeight(config);
+    height = totalHeight(config),
+    arc = isWallArc(config);
+  const info = arc ? {
+    ...partInfo,
+    "Anode · graphite cores": ["Graphite leads follow the opposite bottle wall in one shared hood-filter backing. Filter conductivity and blocked graphite surface are unknown; only the geometric graphite-core envelope is counted.", "Your clarification · C01 · N01"],
+    "Cathode · projected air window": ["Curved cutout follows the bottle circumference. Hood-filter backing is shown on the liquid side as a provisional stack choice. Conductivity, water retention, oxygen access and perimeter sealing need a physical test; window area is not active electrode area.", "Your clarification · C01 · S05 · L01"],
+    "Separator · unvalidated material": ["Two wrapped sticks sit at the lateral edges. Plastic film and lemon-treated coffee paper are schematic spacers; no sheet spans the chamber, and the liquid remains an ionic path. Their transport, leaching and durability are unmeasured.", "Your clarification · C01 · L05"],
+    "Liquid · geometric working volume": [`Internal profile minus immersed graphite cores. Cathode mounting assumes ${(cathodeInsideFraction(config) * 100).toFixed(0)}% of each core is inside the liquid boundary. Filter, spacers, collectors and irregular-base displacement are excluded; verify working volume with a water fill.`, "Model assumptions · C01 · U01"],
+  } : partInfo;
+  const partTitle = part => arc && part === "Cathode · projected air window" ? "Cathode · curved air window"
+    : arc && part === "Separator · unvalidated material" ? "Edge spacers · unvalidated wrapping" : part;
   const change = (key, value, factor) => {
     if (value.trim() === "") {
       setError("Enter a value. The last valid model is retained.");
@@ -137,13 +158,28 @@ export default function Reactor({ config, setConfig, onNewRun }) {
   const basis = (key, value) =>
     setConfig({ ...config, basis: { ...config.basis, [key]: value } });
   const setPreset = (name) => {
-    setConfig({ ...presets[name] });
+    setConfig(structuredClone(arc ? wallArcPresets[name] : presets[name]));
     setError("");
     setResetKey((x) => x + 1);
   };
   const measured = Object.values(config.basis || {}).filter(
     (x) => x === "measured",
   ).length;
+  const setLayout = (value) => {
+    const next = value === "wall-arc" ? wallArcConfig(config) : {...config, electrodeArrangement: "flat"};
+    const errors = validateConfig(next);
+    if (errors.length) { setError(errors[0]); return; }
+    setConfig(next);
+    setError("");
+    setResetKey(x => x + 1);
+  };
+  const setMount = (value) => {
+    const next = {...config, cathodeMount: value};
+    const errors = validateConfig(next);
+    if (errors.length) { setError(errors[0]); return; }
+    setConfig(next);
+    setError("");
+  };
   return (
     <>
       <div className="page-title">
@@ -218,7 +254,7 @@ export default function Reactor({ config, setConfig, onNewRun }) {
                 {config.shape === "clear" ? "Clear bottle" : "White bottle"} ·
                 B01
               </strong>
-              <span>Reconstructed from photos and sketch</span>
+              <span>{arc ? "Your wall-arc concept · dimensions provisional" : "Earlier flat reconstruction · dimensions provisional"}</span>
             </div>
             <ReactorScene
               config={config}
@@ -247,9 +283,9 @@ export default function Reactor({ config, setConfig, onNewRun }) {
           <div className="component-info">
             <Info size={18} />
             <div>
-              <strong>{selected}</strong>
-              <p>{partInfo[selected]?.[0]}</p>
-              <small>{partInfo[selected]?.[1]}</small>
+              <strong>{partTitle(selected)}</strong>
+              <p>{info[selected]?.[0]}</p>
+              <small>{info[selected]?.[1]}</small>
             </div>
           </div>
         </section>
@@ -275,6 +311,12 @@ export default function Reactor({ config, setConfig, onNewRun }) {
             <small>
               Targets describe intended size. Calculated capacity may differ.
             </small>
+            <label htmlFor="electrode-layout">Electrode layout</label>
+            <select id="electrode-layout" value={arc ? "wall-arc" : "flat"} onChange={e => setLayout(e.target.value)}>
+              <option value="wall-arc">Your wall-arc design</option>
+              <option value="flat">Earlier flat reconstruction</option>
+            </select>
+            <small><a href={sourceAsset("/sources/first-bottle-protocol.md")} target="_blank" rel="noreferrer">First bottle test plan</a></small>
           </div>
           <div
             className="inspector-tabs"
@@ -347,9 +389,9 @@ export default function Reactor({ config, setConfig, onNewRun }) {
                 <p className="field-guide">
                   Default rod: N01 rod 2, 47 mm long and 4 mm diameter. Confirm
                   your actual material; the later frame used 2 mm diameter
-                  leads.
+                  leads. {arc && "Coverage starts at 45%, a provisional midpoint of your 40–50% proposal. The 5 mm anode gap is your tentative setting, not a measured optimum."}
                 </p>
-                {electrodeFields.map((f) => (
+                {(arc ? arcFields : electrodeFields).map((f) => (
                   <DimensionField
                     key={f[0]}
                     field={f}
@@ -358,6 +400,14 @@ export default function Reactor({ config, setConfig, onNewRun }) {
                     onBasis={basis}
                   />
                 ))}
+                {arc && <label className="stacked">
+                  Cathode lead mounting
+                  <select aria-label="Cathode lead mounting" value={config.cathodeMount} onChange={e => setMount(e.target.value)}>
+                    <option value="boundary">At the opening · half inside assumed</option>
+                    <option value="outside">Outside the bottle wall</option>
+                    <option value="inside">Inside the bottle wall</option>
+                  </select>
+                </label>}
                 <label className="stacked">
                   Separator arrangement
                   <select
@@ -367,11 +417,11 @@ export default function Reactor({ config, setConfig, onNewRun }) {
                     }
                   >
                     <option value="boundary">
-                      Boundary spacers · sketch concept
+                      {arc ? "Two edge spacers · your concept" : "Boundary spacers · earlier sketch"}
                     </option>
-                    <option value="sheet">
+                    {!arc && <option value="sheet">
                       Full sheet · alternate proposal
-                    </option>
+                    </option>}
                     <option value="none">
                       No separator · alternate proposal
                     </option>
@@ -418,7 +468,7 @@ export default function Reactor({ config, setConfig, onNewRun }) {
                     key={part}
                     onClick={() => setSelected(part)}
                   >
-                    {part}
+                    {partTitle(part)}
                     {selected === part && <Check size={14} />}
                   </button>
                 ))}
@@ -457,12 +507,12 @@ export default function Reactor({ config, setConfig, onNewRun }) {
             <strong>
               {(g.anodeArea * 1e4).toFixed(2)} <small>cm²</small>
             </strong>
-            <p>Cloth microstructure excluded</p>
+            <p>{arc ? "Filter and masked surfaces uncharacterized" : "Cloth microstructure excluded"}</p>
           </div>
           <div>
-            <span>Projected air window</span>
+            <span>{arc ? "Curved air window" : "Projected air window"}</span>
             <strong>
-              {(g.cathodeProjectedArea * 1e4).toFixed(2)} <small>cm²</small>
+              {(g.cathodeArea * 1e4).toFixed(2)} <small>cm²</small>
             </strong>
             <p>
               {(config.exposedFraction * 100).toFixed(0)}% of window exposed to
@@ -480,8 +530,8 @@ export default function Reactor({ config, setConfig, onNewRun }) {
               </code>
               <p>
                 Fill height is integrated through the internal profile. Immersed
-                graphite cores are subtracted; cathode rods are assumed half
-                inside. Remaining cloth, collectors and irregular-base
+                graphite cores are subtracted; cathode rods are assumed {cathodeInsideFraction(config) * 100}%
+                inside. Remaining filter/cloth, spacers, collectors and irregular-base
                 displacement are not known. Geometric headspace:{" "}
                 {(g.headspace * 1e6).toFixed(1)} mL.
               </p>
@@ -490,7 +540,7 @@ export default function Reactor({ config, setConfig, onNewRun }) {
               <h3>Area</h3>
               <code>
                 A anode = N (2π r h immersed + exposed ends)
-                <br />A air window = width × height × exposed fraction
+                <br />{arc ? "A curved air window = 2π r × circumference fraction × height × air exposure" : "A air window = width × height × exposed fraction"}
               </code>
               <p>
                 Anode area uses {(g.immersed * 1000).toFixed(1)} mm immersed
@@ -499,6 +549,7 @@ export default function Reactor({ config, setConfig, onNewRun }) {
                 denominators, not electrochemically active areas. SI internally:
                 m, m², m³. Total internal height: {(height * 1000).toFixed(1)}{" "}
                 mm.
+                {arc && ` The curved width is ${(g.windowArcLength * 1000).toFixed(1)} mm along the inner-wall arc. Cathode rods are evenly distributed across that arc, leaving spacer clearance. Filter conductivity, glue masking and effective wet/air contact are unmeasured.`}
               </p>
             </div>
           </div>

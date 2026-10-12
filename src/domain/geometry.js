@@ -78,6 +78,39 @@ export const presets = {
 };
 export const totalHeight = (c) =>
   c.bodyHeight + c.shoulderHeight + c.neckHeight;
+export const isWallArc = (c) => c.electrodeArrangement === "wall-arc";
+export function wallArcConfig(c) {
+  return {
+    ...c,
+    electrodeArrangement: "wall-arc",
+    cathodeFraction: 0.45,
+    anodeWallInset: 0.001,
+    filterThickness: 0.004,
+    spacerRadius: 0.0025,
+    cathodeMount: "boundary",
+    rodGap: 0.005,
+    separator: "boundary",
+    basis: {
+      ...c.basis,
+      cathodeFraction: "provisional",
+      anodeWallInset: "provisional",
+      filterThickness: "provisional",
+      spacerRadius: "provisional",
+      rodGap: "reported",
+    },
+  };
+}
+export const wallArcPresets = Object.fromEntries(
+  Object.entries(presets).map(([key, config]) => [key, wallArcConfig(config)]),
+);
+export const windowWidth = (c) => isWallArc(c)
+  ? 2 * Math.PI * c.radius * c.cathodeFraction
+  : c.cathodeWidth;
+export const cathodeAngle = (c) => isWallArc(c)
+  ? 2 * Math.PI * c.cathodeFraction
+  : 2 * Math.asin(c.cathodeWidth / (2 * c.radius));
+export const cathodeInsideFraction = (c) => !isWallArc(c) || c.cathodeMount === "boundary"
+  ? 0.5 : c.cathodeMount === "inside" ? 1 : 0;
 // A changed value is a proposal until its evidence is explicitly reassigned.
 export function editDimension(c, key, valueSI) {
   if (c[key] === valueSI) return c;
@@ -112,6 +145,31 @@ export function volumeAtHeight(c, height) {
   return v;
 }
 export function electrodeLayout(c) {
+  if (isWallArc(c)) {
+    const halfAngle = cathodeAngle(c) / 2;
+    const anodeRadius = c.radius - c.anodeWallInset - c.rodRadius;
+    const cathodeRadius = c.cathodeMount === "outside"
+      ? c.radius + c.wallThickness + c.rodRadius
+      : c.cathodeMount === "inside" ? c.radius - c.rodRadius - 0.001 : c.radius;
+    const spacerRadius = c.radius - c.spacerRadius;
+    // Chord pitch: rodGap is the clear surface gap, not centre spacing.
+    const pitchAngle = 2 * Math.asin((2 * c.rodRadius + c.rodGap) / (2 * anodeRadius));
+    const edgeClearance = Math.asin((c.spacerRadius + c.rodRadius + 0.001) / Math.min(anodeRadius, cathodeRadius));
+    const point = (radius, angle) => ({x: radius * Math.cos(angle), z: radius * Math.sin(angle), angle});
+    return {
+      anodeX: -anodeRadius,
+      cathodeX: cathodeRadius,
+      anodeRadius,
+      cathodeRadius,
+      halfAngle,
+      edgeClearance,
+      anodeStart: halfAngle + edgeClearance,
+      anodeSpan: 2 * Math.PI - 2 * (halfAngle + edgeClearance),
+      positions: Array.from({length: c.anodeCount}, (_, i) => point(anodeRadius, Math.PI + (i - (c.anodeCount - 1) / 2) * pitchAngle)),
+      cathodePositions: Array.from({length: c.cathodeCount}, (_, i) => point(cathodeRadius, c.cathodeCount === 1 ? 0 : (2 * i / (c.cathodeCount - 1) - 1) * (halfAngle - edgeClearance))),
+      spacerPositions: [-1, 1].map(sign => point(spacerRadius, sign * halfAngle)),
+    };
+  }
   const cathodeX = Math.sqrt(
     Math.max(0, c.radius * c.radius - (c.cathodeWidth / 2) ** 2),
   );
@@ -132,6 +190,8 @@ export function validateConfig(c) {
     problems.push("Unknown bottle shape.");
   if (typeof c.endsExposed !== "boolean")
     problems.push("Rod-end exposure must be a boolean.");
+  if (c.electrodeArrangement !== undefined && !["flat", "wall-arc"].includes(c.electrodeArrangement))
+    problems.push("Unknown electrode layout.");
   for (const key of [
     "radius",
     "bodyHeight",
@@ -141,8 +201,6 @@ export function validateConfig(c) {
     "wallThickness",
     "rodRadius",
     "rodHeight",
-    "electrodeGap",
-    "cathodeWidth",
     "cathodeHeight",
   ])
     if (!Number.isFinite(c[key]) || c[key] <= 0)
@@ -161,16 +219,41 @@ export function validateConfig(c) {
     problems.push("Liquid level exceeds the internal height.");
   if (c.rodBottom + c.rodHeight > c.bodyHeight)
     problems.push("Anodes extend beyond the straight body.");
-  if (c.cathodeWidth >= 2 * c.radius)
-    problems.push("Cathode window must be narrower than the body diameter.");
+  if (!isWallArc(c)) {
+    if (!Number.isFinite(c.electrodeGap) || c.electrodeGap <= 0)
+      problems.push("Electrode gap must be positive.");
+    if (!Number.isFinite(c.cathodeWidth) || c.cathodeWidth <= 0 || c.cathodeWidth >= 2 * c.radius)
+      problems.push("Cathode window must be positive and narrower than the body diameter.");
+  } else {
+    if (!Number.isFinite(c.cathodeFraction) || c.cathodeFraction <= 0 || c.cathodeFraction > 0.5)
+      problems.push("Cathode coverage must be greater than 0 and at most 50% of the circumference.");
+    for (const key of ["anodeWallInset", "filterThickness", "spacerRadius"])
+      if (!Number.isFinite(c[key]) || c[key] <= 0 || c[key] >= c.radius / 3)
+        problems.push(`${key} must be positive and less than one third of the bottle radius.`);
+    if (c.filterThickness < 2 * c.rodRadius)
+      problems.push("Anode filter thickness must accommodate the rod diameter in this reconstruction.");
+    if (!["boundary", "inside", "outside"].includes(c.cathodeMount))
+      problems.push("Unknown cathode mounting position.");
+    if (c.separator === "sheet")
+      problems.push("The wall-arc design uses edge spacers, not a transverse sheet.");
+  }
   if (c.cathodeBottom + c.cathodeHeight > c.bodyHeight)
     problems.push("Cathode window extends beyond the straight body.");
   if (
     c.cathodeHeight < c.rodHeight ||
-    c.cathodeWidth < 2 * c.rodRadius * c.cathodeCount
+    windowWidth(c) < 2 * c.rodRadius * c.cathodeCount
   )
     problems.push("Cathode rods do not fit within the selected window.");
-  if (
+  if (isWallArc(c) && problems.length === 0) {
+    const layout = electrodeLayout(c);
+    const within = layout.positions.every(p => Number.isFinite(p.x) && p.angle >= layout.anodeStart && p.angle <= layout.anodeStart + layout.anodeSpan);
+    const rods = [...layout.positions, ...layout.cathodePositions];
+    const overlaps = rods.some((p, i) => rods.slice(i + 1).some(q => Math.hypot(p.x - q.x, p.z - q.z) < 2 * c.rodRadius - 1e-12));
+    const spacerOverlap = rods.some(p => layout.spacerPositions.some(q => Math.hypot(p.x - q.x, p.z - q.z) < c.rodRadius + c.spacerRadius));
+    if (!within || overlaps || spacerOverlap || !Number.isFinite(layout.edgeClearance) || layout.halfAngle <= layout.edgeClearance)
+      problems.push("Rods and edge spacers do not fit: reduce count, diameter or spacing, or enlarge the window/bottle.");
+  }
+  if (!isWallArc(c) &&
     !Number.isFinite(c.exposedFraction) ||
     c.exposedFraction < 0 ||
     c.exposedFraction > 1
@@ -203,7 +286,7 @@ export function geometry(c) {
   );
   const displacement =
     cylinderVolume(c.rodRadius, immersed) * c.anodeCount +
-    (cylinderVolume(c.rodRadius, cathodeImmersed) * c.cathodeCount) / 2;
+    cylinderVolume(c.rodRadius, cathodeImmersed) * c.cathodeCount * cathodeInsideFraction(c);
   const liquid = Math.max(0, volumeAtHeight(c, c.liquidHeight) - displacement);
   const ends =
     c.endsExposed && immersed > 0
@@ -214,7 +297,7 @@ export function geometry(c) {
   const anodeArea =
     (2 * Math.PI * c.rodRadius * immersed + ends) * c.anodeCount;
   const cathodeProjectedArea =
-    c.cathodeWidth * c.cathodeHeight * c.exposedFraction;
+    windowWidth(c) * c.cathodeHeight * c.exposedFraction;
   const wettedWindowHeight = Math.max(
     0,
     Math.min(c.cathodeHeight, c.liquidHeight - c.cathodeBottom),
@@ -226,7 +309,10 @@ export function geometry(c) {
     displacement,
     anodeArea,
     cathodeProjectedArea,
-    wettedWindowArea: c.cathodeWidth * wettedWindowHeight,
+    cathodeArea: cathodeProjectedArea,
+    cathodeAreaBasis: isWallArc(c) ? "Curved inner-wall window" : "Flat projected window",
+    windowArcLength: windowWidth(c),
+    wettedWindowArea: windowWidth(c) * wettedWindowHeight,
     immersed,
     layout: electrodeLayout(c),
   };

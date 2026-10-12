@@ -14,7 +14,7 @@ import {
 import Reactor from "./components/Reactor.jsx";
 import Notebook, { downloadFile } from "./components/Notebook.jsx";
 import { Evidence, NextExperiments } from "./components/Research.jsx";
-import { presets, geometry } from "./domain/geometry.js";
+import { wallArcPresets, geometry, isWallArc } from "./domain/geometry.js";
 import { validateBackup } from "./domain/data.js";
 import { historicalRuns } from "./data.js";
 import { sourceAsset } from "./assets.js";
@@ -22,7 +22,7 @@ const STORAGE = "mfc-workbench-v1";
 function initialData() {
   const fresh = {
     schemaVersion: 1,
-    config: { ...presets.clear500 },
+    config: { ...wallArcPresets.clear500 },
     runs: structuredClone(historicalRuns),
   };
   let raw = null;
@@ -83,7 +83,7 @@ export default function App() {
       config: structuredClone(config),
       workingVolumeM3: g.liquid || null,
       volumeBasis: "calculated",
-      electrodes: `Graphite option: ${(config.rodRadius * 2000).toFixed(1)} mm diameter × ${(config.rodHeight * 1000).toFixed(1)} mm. ${config.anodeCount} anode and ${config.cathodeCount} cathode rods; ${(config.electrodeGap * 1000).toFixed(1)} mm surface gap. Confirm materials.`,
+      electrodes: `Graphite option: ${(config.rodRadius * 2000).toFixed(1)} mm diameter × ${(config.rodHeight * 1000).toFixed(1)} mm. ${config.anodeCount} anode and ${config.cathodeCount} cathode rods; ${isWallArc(config) ? `wall-arc arrangement, ${(config.rodGap * 1000).toFixed(1)} mm clear anode-rod gap, ${(config.cathodeFraction * 100).toFixed(1)}% circumference cathode, ${config.cathodeMount} mounting, ${config.separator === "boundary" ? "two edge spacers" : "no edge spacers"}. Hood filter conductivity and cathode seal unverified` : `${(config.electrodeGap * 1000).toFixed(1)} mm surface gap`}. Confirm materials.`,
       inoculum: "",
       feedstock: "",
       environment: "",

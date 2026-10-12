@@ -5,4 +5,4 @@ await publishSources(
   fileURLToPath(new URL("../public/sources/", import.meta.url)),
   fileURLToPath(new URL("../dist/sources/", import.meta.url)),
 );
-console.log("Published 8 reference images, the curated assessment and a public hash inventory.");
+console.log("Published 8 reference images, the curated assessment, design clarification, test plan and public hash inventory.");

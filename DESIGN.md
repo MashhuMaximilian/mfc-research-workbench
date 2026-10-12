@@ -293,6 +293,8 @@ Panels are flat. Pale field, white surface and thin borders convey grouping; fin
 
 The 3D scene supplies the material depth: transparent housing and liquid, opaque cores, a translucent ground grid and directional lighting. Perspective framing derives from object bounds; a camera reset or view/preset change reframes the scene. Rendering uses sRGB output, ACES filmic tone mapping and the observed material settings in the sidecar. These visual cues do not certify sealing, dimensions or reactor behavior.
 
+The 12 October wall-arc revision retains these interface roles. A layout select distinguishes the owner's curved concept from the earlier flat reconstruction; older saved configurations keep their existing interpretation. Curved hood-filter backings and two wrapped edge spacers are schematic. The electrode inspector adds circumference coverage, backing thickness, wall clearance, spacer diameter and inside/outside mounting controls using the existing dimension-field and select patterns. Desktop and 390px mobile captures are in .impeccable/review/wall-arc-desktop.jpg and wall-arc-mobile.jpg. Their values are software QA settings, not experimental measurements.
+
 **The Flat Surface Rule.** Separate panels with fill and thin borders. The selected segmented item is the only implemented CSS shadow role.
 
 There are no authored CSS duration/easing tokens or automatic entrance effects. Orbit interaction uses damping. Reduced-motion CSS removes transitions and smooth scrolling; it does not disable the Three.js animation loop or damping. Do not claim a reduced-motion 3D behavior that is absent from the implementation.

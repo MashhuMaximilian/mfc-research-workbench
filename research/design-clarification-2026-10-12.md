@@ -8,9 +8,9 @@ The intended anode follows the opposite wall. Graphite leads are inserted into t
 
 Two wrapped sticks sit at the lateral edges where the anode and cathode regions approach each other. The proposed wrapping is kitchen plastic film and coffee-filter paper soaked in lemon juice and dried. No sheet spans the bottle diameter. These elements are proposed spacers. There is no evidence that this assembly is a proton-exchange membrane; liquid around it remains an ionic transport path. Record the actual stick and adhesive composition rather than assuming a glue stick is silicone.
 
-## Difference from the first application model
+## Difference from the first application model (before this revision)
 
-The current renderer and cathode-area calculation use a narrow flat panel, and the anode renderer uses individual cloth jackets. They do **not** accurately represent the newly clarified curved, filter-backed regions. The current geometry is useful for provisional chamber-volume exploration, but its cathode window area must not be used as the area of a 40–50% arc. A future revision should add arc coverage, a shared filter backing, two edge spacers, and appropriate area and fit validation. For a cylindrical wall region, geometric arc area would be A = π D f h, where D is diameter, f is the circumference fraction and h is window height. This is not electrochemically active area.
+The first renderer and cathode-area calculation used a narrow flat panel, and the anode renderer used individual cloth jackets. They did **not** accurately represent the newly clarified curved, filter-backed regions. The older flat layout remains available for saved configurations and comparison. For a cylindrical wall region, geometric arc area would be A = π D f h, where D is diameter, f is the circumference fraction and h is window height. This is not electrochemically active area.
 
 ## Engineering questions and first tests
 
@@ -21,3 +21,7 @@ The current renderer and cathode-area calculation use a narrow flat panel, and t
 - Establish a fixed-load baseline, with a no-added-inoculum comparator and independent reactor replicates where feasible. A no-added-inoculum comparator is not automatically sterile.
 
 Primary starting sources: [Christgen et al. (2015), separator comparison](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0136108), [Penn State MFC construction guidance](https://sites.psu.edu/microbialfuelcells/make-one/). These support investigating ionic transport and the cathode interface, not a claim that this particular household-material design has been validated or is best.
+
+## Implemented wall-arc revision
+
+The workbench now reconstructs opposing wall arcs, a shared anode hood-filter backing, a curved cathode window, and two wrapped edge spacers. Curved area uses the inner-wall circumference; lead crowding and spacer contact are checked. Cathode lead placement can be at the opening (half-core displacement assumed), inside or outside. The wet-side cathode backing, filter thickness, spacer diameter and wall clearances are explicitly provisional. No liquid-tight seal, PEM behaviour or biological performance is established. Earlier saved configurations retain the flat calculation and are not reinterpreted. See [the first-bottle test plan](first-bottle-protocol.md).

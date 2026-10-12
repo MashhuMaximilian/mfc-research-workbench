@@ -5,7 +5,7 @@ import {
   CSS2DRenderer,
   CSS2DObject,
 } from "three/addons/renderers/CSS2DRenderer.js";
-import { geometry, totalHeight } from "../domain/geometry.js";
+import { geometry, totalHeight, isWallArc, cathodeAngle } from "../domain/geometry.js";
 
 const colors = {
   housing: 0xb6cdcc,
@@ -42,7 +42,7 @@ function wallGeometry(c, cutaway) {
       c.cathodeBottom + c.cathodeHeight,
       c.bodyHeight,
     ];
-  const angle = Math.asin(c.cathodeWidth / (2 * c.radius));
+  const angle = cathodeAngle(c) / 2;
   for (let j = 0; j < levels.length - 1; j++)
     for (let i = 0; i < steps; i++) {
       const a = (i / steps) * Math.PI * 2,
@@ -77,6 +77,35 @@ function wallGeometry(c, cutaway) {
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
+}
+// Finite-thickness curved backing. Its rendered surface is not added to the
+// electrode-area calculation: filter conductivity and microstructure are unknown.
+function arcBand(radius, thickness, height, start, span) {
+  const vertices = [], indices = [];
+  const point = (r, y, angle) => [r * Math.cos(angle), y, r * Math.sin(angle)];
+  const quad = (...points) => {
+    const offset = vertices.length / 3;
+    points.forEach(p => vertices.push(...p));
+    indices.push(offset, offset + 1, offset + 2, offset, offset + 2, offset + 3);
+  };
+  const inner = radius - thickness / 2, outer = radius + thickness / 2;
+  const steps = Math.max(12, Math.ceil(span / (2 * Math.PI) * 112));
+  for (let i = 0; i < steps; i++) {
+    const a = start + span * i / steps, b = start + span * (i + 1) / steps;
+    quad(point(outer, 0, a), point(outer, height, a), point(outer, height, b), point(outer, 0, b));
+    quad(point(inner, 0, b), point(inner, height, b), point(inner, height, a), point(inner, 0, a));
+    quad(point(inner, height, a), point(inner, height, b), point(outer, height, b), point(outer, height, a));
+    quad(point(inner, 0, b), point(inner, 0, a), point(outer, 0, a), point(outer, 0, b));
+  }
+  for (const a of [start, start + span])
+    quad(point(inner, 0, a), point(inner, height, a), point(outer, height, a), point(outer, 0, a));
+  const result = new THREE.BufferGeometry();
+  result.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  result.setIndex(indices);
+  result.computeVertexNormals();
+  result.computeBoundingBox();
+  result.computeBoundingSphere();
+  return result;
 }
 function disposeObject(o) {
   o.traverse((x) => {
@@ -396,6 +425,44 @@ export default function ReactorScene({
         "liquid",
         "Liquid · geometric working volume",
       );
+    if (isWallArc(c)) {
+      const layout = g.layout;
+      const anodeShift = exploded ? -0.055 : 0;
+      const cathodeShift = exploded ? 0.055 : 0;
+      add(groups.anode,
+        arcBand(c.radius - c.anodeWallInset - c.filterThickness / 2, c.filterThickness, c.rodHeight, layout.anodeStart, layout.anodeSpan),
+        new THREE.MeshStandardMaterial({color: 0x65736b, roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.65, depthWrite: false}),
+        [anodeShift, c.rodBottom, 0], "Anode · graphite cores");
+      for (const pos of layout.positions)
+        add(groups.anode, new THREE.CylinderGeometry(c.rodRadius, c.rodRadius, c.rodHeight, 20), mat("anode"),
+          [pos.x + anodeShift, c.rodBottom + c.rodHeight / 2, pos.z], "Anode · graphite cores");
+      // Wet-side hood-filter backing is a declared reconstruction assumption.
+      add(groups.cathode,
+        arcBand(c.radius - c.filterThickness / 2, c.filterThickness, c.cathodeHeight, -layout.halfAngle, 2 * layout.halfAngle),
+        mat("cathode", true, 0.38), [cathodeShift, c.cathodeBottom, 0], "Cathode · projected air window");
+      for (const pos of layout.cathodePositions)
+        add(groups.cathode, new THREE.CylinderGeometry(c.rodRadius, c.rodRadius, c.rodHeight, 20), mat("anode"),
+          [pos.x + cathodeShift, c.cathodeBottom + c.rodHeight / 2, pos.z], "Cathode · projected air window");
+      const outline = arcBand(c.radius + c.wallThickness, 0.001, c.cathodeHeight, -layout.halfAngle, 2 * layout.halfAngle);
+      const perimeter = new THREE.EdgesGeometry(outline);
+      outline.dispose();
+      const frame = new THREE.LineSegments(perimeter, new THREE.LineBasicMaterial({color: 0x4d8580}));
+      frame.position.set(cathodeShift, c.cathodeBottom, 0);
+      groups.cathode.add(frame);
+      const blocked = c.cathodeHeight * (1 - c.exposedFraction);
+      if (blocked > 0)
+        add(groups.cathode, arcBand(c.radius + c.wallThickness + 0.003, 0.001, blocked, -layout.halfAngle, 2 * layout.halfAngle),
+          new THREE.MeshStandardMaterial({color: 0xb4bbba, roughness: 0.8, side: THREE.DoubleSide}),
+          [cathodeShift, c.cathodeBottom + c.cathodeHeight - blocked, 0], "Cathode · projected air window");
+      if (c.separator === "boundary")
+        for (const pos of layout.spacerPositions) {
+          add(groups.separator, new THREE.CylinderGeometry(c.spacerRadius, c.spacerRadius, c.cathodeHeight, 20), mat("separator"),
+            [pos.x + (exploded ? 0.024 : 0), c.cathodeBottom + c.cathodeHeight / 2, pos.z], "Separator · unvalidated material");
+          add(groups.separator, new THREE.CylinderGeometry(c.spacerRadius + 0.00025, c.spacerRadius + 0.00025, c.cathodeHeight, 20, 1, true),
+            new THREE.MeshStandardMaterial({color: 0xe2d7b6, roughness: 1, side: THREE.DoubleSide, wireframe: true}),
+            [pos.x + (exploded ? 0.024 : 0), c.cathodeBottom + c.cathodeHeight / 2, pos.z], "Separator · unvalidated material");
+        }
+    } else {
     for (const pos of g.layout.positions) {
       add(
         groups.anode,
@@ -491,12 +558,33 @@ export default function ReactorScene({
           ],
           "Separator · unvalidated material",
         );
-    const az = ((c.anodeCount - 1) / 2) * (2 * c.rodRadius + c.rodGap),
+    }
+    const cx = g.layout.cathodeX + (exploded ? 0.055 : 0);
+    const az = Math.max(...g.layout.positions.map(p => Math.abs(p.z))),
       ax = g.layout.anodeX - (exploded ? 0.055 : 0);
     const collectorY = Math.max(
       c.liquidHeight + 0.012,
       c.rodBottom + c.rodHeight + 0.008,
     );
+    if (isWallArc(c)) {
+      for (const [positions, shift, bottom, color] of [
+        [g.layout.positions, exploded ? -0.055 : 0, c.rodBottom, 0xc17a48],
+        [g.layout.cathodePositions, exploded ? 0.055 : 0, c.cathodeBottom, 0x357b79],
+      ]) {
+        const busPoints = positions.length > 1 ? positions : [
+          {x: positions[0].x, z: positions[0].z - 0.003},
+          {x: positions[0].x, z: positions[0].z + 0.003},
+        ];
+        const collector = tube(busPoints.map(p => [p.x + shift, collectorY, p.z]), 0.0012, color);
+        collector.userData.part = "Wiring · dry collector concept";
+        groups.wiring.add(collector);
+        for (const pos of positions) {
+          const lead = tube([[pos.x + shift, bottom + c.rodHeight, pos.z], [pos.x + shift, collectorY, pos.z]], 0.0006, 0x58716f);
+          lead.userData.part = "Wiring · dry collector concept";
+          groups.wiring.add(lead);
+        }
+      }
+    } else {
     const bus = add(
       groups.wiring,
       new THREE.BoxGeometry(0.003, 0.002, az * 2 + 0.006),
@@ -517,6 +605,7 @@ export default function ReactorScene({
       lead.userData.part = "Wiring · dry collector concept";
       groups.wiring.add(lead);
     }
+    }
     const top = Math.max(c.bodyHeight + 0.025, collectorY + 0.012);
     const w1 = tube(
       [
@@ -531,7 +620,7 @@ export default function ReactorScene({
     groups.wiring.add(w1);
     const w2 = tube(
       [
-        [cx, c.cathodeBottom + c.rodHeight, 0],
+          [cx, isWallArc(c) ? collectorY : c.cathodeBottom + c.rodHeight, 0],
         [cx + 0.018, top + 0.004, 0],
         [0.085, top + 0.013, -0.02],
       ],
@@ -564,7 +653,7 @@ export default function ReactorScene({
       );
       labels.add(
         label(
-          "Air cathode",
+          isWallArc(c) ? `Air cathode · ${(c.cathodeFraction * 100).toFixed(0)}% arc` : "Air cathode",
           cx + 0.028,
           c.cathodeBottom + c.cathodeHeight / 2,
           0,

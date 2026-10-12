@@ -2,6 +2,14 @@ import { sourceAsset, localArchiveAvailable } from "./assets.js";
 const notion = "https://app.notion.com/p/10bed8479ccd806fb98ae2aaac0ad190";
 export const sources = [
   {
+    id: "C01",
+    title: "Owner's wall-arc design clarification · 12 Oct 2026",
+    type: "Document",
+    status: "Design proposal",
+    url: "/sources/design-clarification-2026-10-12.md",
+    summary: "Opposing curved electrode regions, hood-filter backing, 40–50% circumference cathode, tentative 5 mm clear anode-lead spacing and two wrapped edge spacers. No measured performance or validated PEM is implied.",
+  },
+  {
     id: "S01",
     title: "Electrode frame · perspective",
     type: "Image",
@@ -183,6 +191,12 @@ export const sources = [
   local: localArchiveAvailable && source.local ? sourceAsset(source.local) : undefined,
 }));
 export const facts = [
+  {
+    id: "F13",
+    kind: "Design proposal",
+    text: "The clarified bottle design places filter-backed graphite regions along opposite wall arcs, with two lateral wrapped spacers and no sheet across the diameter. The 40–50% cathode coverage and 5 mm anode-lead gap are proposed settings, not verified optima.",
+    sources: ["C01"],
+  },
   {
     id: "F01",
     kind: "Observation",
@@ -439,6 +453,20 @@ export const historicalRuns = [
   },
 ];
 export const proposals = [
+  {
+    id: "EXP-00",
+    title: "Check the hood filter and graphite contacts",
+    mechanism: "Stable electronic connections to the graphite are needed; carbon-loaded filter material is not assumed to be an electronic conductor.",
+    sources: ["C01", "L06"],
+    effect: "Identifies the filter's possible role and contact problems; no biological output is predicted.",
+    controls: "Dry samples, fixed contact spacing and force, the same meter/range; record shorted-lead and disconnected-meter displays.",
+    protocol: "Measure each graphite lead, a fixed-length filter strip, and terminal-to-each-lead continuity. Repeat contact attachment. If the filter does not conduct, keep it as support and connect every lead. Wet resistance is not proof of filter electronic or proton conductivity.",
+    supports: "Repeatable terminal-to-lead connections and a clearly documented conducting or support-only role for the filter.",
+    contradicts: "Open or unstable contacts, or inconsistent measurements dominated by probe contact.",
+    cost: "Existing meter, leads and filter offcut; actual costs not recorded",
+    time: "One bench session",
+    scores: {cost: 5, time: 5, feasibility: 5, uncertainty: 5, information: 5},
+  },
   {
     id: "EXP-01",
     title: "Establish a measurement baseline",

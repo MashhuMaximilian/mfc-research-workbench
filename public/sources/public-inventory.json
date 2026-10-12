@@ -45,6 +45,16 @@
       "file": "phase-0.md",
       "bytes": 13247,
       "sha256": "0ca0bdc3cb708f1dec474bbcbe914943e7ddba6e01039e5b72c0e12b3ff6702b"
+    },
+    {
+      "file": "design-clarification-2026-10-12.md",
+      "bytes": 4076,
+      "sha256": "8d3146939eb9d5fc36e1421fb565f21a7900140c1616bacddc5a85550fe1649f"
+    },
+    {
+      "file": "first-bottle-protocol.md",
+      "bytes": 7828,
+      "sha256": "cd35e1bc76a1fb874a2691747b6be43eefa59e4cc79928f824a9061837eccbf5"
     }
   ]
 }

@@ -25,7 +25,7 @@ test("publication excludes private exports and preserves original image bytes", 
     assert.deepEqual((await readdir(destination)).sort(), [...publishedAssets, "public-inventory.json"].sort());
     assert.deepEqual(await readFile(join(destination, "S02-clear-bottle.jpg")), await readFile(join(source, "S02-clear-bottle.jpg")));
     const inventory = JSON.parse(await readFile(join(destination, "public-inventory.json"), "utf8"));
-    assert.equal(inventory.files.length, 9);
+    assert.equal(inventory.files.length, 11);
     assert.ok(inventory.files.every(file => !file.file.includes("/") && /^[a-f0-9]{64}$/.test(file.sha256)));
     assert.ok(!JSON.stringify(inventory).includes(directory));
   } finally {

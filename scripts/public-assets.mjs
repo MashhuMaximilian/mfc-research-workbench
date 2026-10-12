@@ -12,6 +12,8 @@ export const publishedAssets = Object.freeze([
   "S07-meter-positive.jpg",
   "S08-frame-side.jpg",
   "phase-0.md",
+  "design-clarification-2026-10-12.md",
+  "first-bottle-protocol.md",
 ]);
 
 export async function publishSources(sourceDirectory, destinationDirectory) {
